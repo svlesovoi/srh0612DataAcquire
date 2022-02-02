@@ -950,7 +950,7 @@ void MainWindow::initDigitalReceivers(){
             setRgPacket.D.Rg32.Rg[channel*4 + 11] = antXColumn[r_c_ind]; //
             setRgPacket.D.Rg32.Rg[channel*4 + 12] = antYColumn[r_c_ind]; //
             setRgPacket.D.Rg32.Rg[channel*4 + 13] = antZColumn[r_c_ind]; //
-            setRgPacket.D.Rg32.Rg[channel*4 + 14] = 0;//pAntennaDelay[r_c_ind]; //
+            setRgPacket.D.Rg32.Rg[channel*4 + 14] = pAntennaDelay[r_c_ind]; //
         }
         pCorrelatorClient->write(reinterpret_cast<const char*>(&setRgPacket), sizeof(tPkg_Head) + setRgPacket.H.DtSz);
     }
