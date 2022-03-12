@@ -659,6 +659,10 @@ void MainWindow::on_correlatorClient_parse(){
                 if (pCorrData->Blck.DtBlck.Offset == 0){
                     std::memcpy(dataPacket + pCorrData->Blck.DtBlck.Offset, pCorrData->Blck.pU8 + sizeof(tConfigure) + sizeof(tDtBlock), pCorrData->Blck.DtBlck.DtSz);
                     currentPolarization = pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Plrztn;
+                    if (currentPolarization == showPolarization && currentFrequency == showFrequency){
+                        ui->logText->append("Tbox " + QString::number(pCorrData->Blck.Cfg.Temprtr));
+                        ui->logText->append("Tfpga " + QString::number(pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Tfpga - 128));
+                    }
                     currentFrequency = 0;
                     currentTime = pCorrData->Blck.Cfg.TimeDMA;
                     for (unsigned int f = 0;f < frequencyListSize;++f)
@@ -1147,7 +1151,7 @@ void MainWindow::setCorrelatorTime(){
 
     msg.sprintf("timestamp ");
     ui->logText->append(msg + QString(curTime.toString("yyyyMMddThhmmss")));
-    ui->logText->append(QString::asprintf("toTome_t %u", setRgPacket.D.Rg32.Rg[2]));
+    ui->logText->append(QString::asprintf("toTime_t %u", setRgPacket.D.Rg32.Rg[2]));
 }
 
 void MainWindow::on_initCorrelatorButton_clicked(bool checked){

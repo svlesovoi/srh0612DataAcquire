@@ -295,6 +295,7 @@ private:
 
     tSyncDriverConfigure SyncDriverConfig;
     QG7M* localOscillator;
+    qint64 currentPacketTime;
 };
 
 #endif // MAINWINDOW_H
