@@ -199,8 +199,8 @@ MainWindow::MainWindow(QWidget *parent) :
             unsigned int V = pWestAntennaReceiver[j]*16 + pWestAntennaChannel[j];
             pVisIndToCorrPacketInd[visInd] = visibilityIndexAsHV(H, V);
             pVisibilitySign[visInd] = H > V ? 1 : -1;
-            pVis0612AntennaNameA[visInd] = pSouthAntennaName[i];
-            pVis0612AntennaNameB[visInd] = pWestAntennaName[j];
+            pVis0612AntennaNameA[visInd] = pWestAntennaName[j];
+            pVis0612AntennaNameB[visInd] = pSouthAntennaName[i];
         }
 //southEast vis
         for (unsigned j = 0;j < eastAntennaNumber;++j){
@@ -210,8 +210,8 @@ MainWindow::MainWindow(QWidget *parent) :
             unsigned int V = pEastAntennaReceiver[j]*16 + pEastAntennaChannel[j];
             pVisIndToCorrPacketInd[visInd] = visibilityIndexAsHV(H, V);
             pVisibilitySign[visInd] = H > V ? 1 : -1;
-            pVis0612AntennaNameA[visInd] = pSouthAntennaName[i];
-            pVis0612AntennaNameB[visInd] = pEastAntennaName[j];
+            pVis0612AntennaNameA[visInd] = pEastAntennaName[j];
+            pVis0612AntennaNameB[visInd] = pSouthAntennaName[i];
         }
     }
 //southSouth vis
@@ -279,6 +279,7 @@ MainWindow::MainWindow(QWidget *parent) :
     numberOfFitsVisibilities = vis0612Number;
     numberOfFitsAmplitudes = amp0612Number;
     numberOfShowVisibilities = 4;
+    currentPacketTime = 0;
     currentFrequency = 0;
     currentPolarization = 0;
     showFrequency = 0;
@@ -583,7 +584,6 @@ void MainWindow::on_correlatorClient_parse(){
     unsigned int lcpVisColumnOffset;
     unsigned int rcpVisColumnOffset;
     unsigned int bytesInBuffer = 0;
-    unsigned int currentTime;
     tPkg_Head* pCorrHead =  reinterpret_cast<tPkg_Head*>(correlatorRawBuffer);
     tPkg_Dt* pCorrData = reinterpret_cast<tPkg_Dt*>(correlatorRawBuffer + sizeof(tPkg_Head));
     tConfigure* pConf = reinterpret_cast<tConfigure*>(correlatorRawBuffer + sizeof(tPkg_Head));
@@ -657,18 +657,17 @@ void MainWindow::on_correlatorClient_parse(){
             pCorrelatorClient->read(reinterpret_cast<char*>(pCorrData), pCorrHead->DtSz);         //read data
             if(pCorrData->Blck.DtBlck.DtSz > 0 && pCorrData->Blck.DtBlck.DtSz <= dHlgrph_PkgBlckDtMaxSz) { //visibility data
                 if (pCorrData->Blck.DtBlck.Offset == 0){
-                    std::memcpy(dataPacket + pCorrData->Blck.DtBlck.Offset, pCorrData->Blck.pU8 + sizeof(tConfigure) + sizeof(tDtBlock), pCorrData->Blck.DtBlck.DtSz);
+                    std::memcpy(dataPacket + pCorrData->Blck.DtBlck.Offset, pCorrData->Blck.pU8, pCorrData->Blck.DtBlck.DtSz);
                     currentPolarization = pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Plrztn;
-                    if (currentPolarization == showPolarization && currentFrequency == showFrequency){
-                        ui->logText->append("Tbox " + QString::number(pCorrData->Blck.Cfg.Temprtr));
-                        ui->logText->append("Tfpga " + QString::number(pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Tfpga - 128));
-                    }
                     currentFrequency = 0;
-                    currentTime = pCorrData->Blck.Cfg.TimeDMA;
                     for (unsigned int f = 0;f < frequencyListSize;++f)
                         if (pCorrData->Blck.Cfg.InfoSpiDrv.Frequency == frequencyList[f]){
                                 currentFrequency = f;
                         }
+                    if (currentPolarization == showPolarization && currentFrequency == showFrequency){
+                        ui->logText->append("Tfpga " + QString::number(pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Tfpga));
+                    }
+                    currentPacketTime = pCorrData->Blck.Cfg.InfoSpiDrv.Time * 1000L + pCorrData->Blck.Cfg.InfoSpiDrv.TimePrescaler / 100000L;
                 } else
                     std::memcpy(dataPacket + pCorrData->Blck.DtBlck.Offset, pCorrData->Blck.pU8, pCorrData->Blck.DtBlck.DtSz);
 
@@ -719,36 +718,30 @@ void MainWindow::on_correlatorClient_parse(){
                     lcpVisColumnOffset = lcpFullPacketNumber / frequencyListSize * numberOfFitsVisibilities;
                     rcpVisColumnOffset = rcpFullPacketNumber / frequencyListSize * numberOfFitsVisibilities;
 
-                    QTime curTime = QTime::currentTime();
                     int64_t* pAmplitude = pAnt0;
                     int64_t* pVisibility = reinterpret_cast<int64_t*>(dataPacket  + sizeof(tConfigure));
                     if (currentPolarization == 1 && lcpFullPacketNumber < fullPacketsInFits){
                         QString msg;
-//                        msg.sprintf("LCP frequency %d", currentFrequency);
-//                        ui->logText->append(msg);
+                        QDateTime packetDateTime = QDateTime::fromMSecsSinceEpoch(currentPacketTime);
                         freqColumn[currentFrequency] = frequencyList[currentFrequency];
-                        timeColumn[currentFrequency][lcpFullPacketNumber / frequencyListSize] = curTime.msecsSinceStartOfDay() * 0.001;
+                        timeColumn[currentFrequency][lcpFullPacketNumber / frequencyListSize] = packetDateTime.time().msecsSinceStartOfDay() * 0.001;
                         for(unsigned int lcpAmp = 0;lcpAmp < numberOfFitsAmplitudes;++lcpAmp)
                             lcpAmpColumn[currentFrequency][lcpAmpColumnOffset + pAmpIndToFitsInd[lcpAmp]] = pAmplitude[pAmpIndToCorrPacketInd[lcpAmp]];
                         for(unsigned int lcpVis = 0;lcpVis < numberOfFitsVisibilities;++lcpVis){
                             int64_t lcpInt64 = pVisibility[pVisIndToCorrPacketInd[lcpVis]];
                             float realLcpInt64 = *(int32_t*)&lcpInt64;
                             float imagLcpInt64 = *((int32_t*)&lcpInt64 + 1);
-//                            lcpVisColumn[currentFrequency][lcpVisColumnOffset + pVisIndToFitsInd[lcpVis]] = complex<float>(realLcpInt64,  imagLcpInt64);
                             lcpVisColumn[currentFrequency][lcpVisColumnOffset + lcpVis] = complex<float>(realLcpInt64,  imagLcpInt64);
                         }
                         ++lcpFullPacketNumber;
                     } else if (rcpFullPacketNumber < fullPacketsInFits){
                         QString msg;
-//                        msg.sprintf("RCP frequency %d", currentFrequency);
-//                        ui->logText->append(msg);
                         for(unsigned int rcpAmp = 0;rcpAmp < numberOfFitsAmplitudes;++rcpAmp)
                             rcpAmpColumn[currentFrequency][rcpAmpColumnOffset + pAmpIndToFitsInd[rcpAmp]] = pAmplitude[pAmpIndToCorrPacketInd[rcpAmp]];
                         for(unsigned int rcpVis = 0;rcpVis < numberOfFitsVisibilities;++rcpVis){
                             int64_t rcpInt64 = pVisibility[pVisIndToCorrPacketInd[rcpVis]];
                             float realRcpInt64 = *(int32_t*)&rcpInt64;
                             float imagRcpInt64 = *((int32_t*)&rcpInt64 + 1);
-//                            rcpVisColumn[currentFrequency][rcpVisColumnOffset + pVisIndToFitsInd[rcpVis]] = complex<float>(realRcpInt64, imagRcpInt64);
                             rcpVisColumn[currentFrequency][rcpVisColumnOffset + rcpVis] = complex<float>(realRcpInt64, imagRcpInt64);
                         }
                         ++rcpFullPacketNumber;
