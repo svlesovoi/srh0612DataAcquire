@@ -172,7 +172,7 @@ private:
     unsigned int frequencyDelay;
     bool internalSync;
     unsigned int quantizerStep;
-    bool qunatizerZeroLevel;
+    bool quantizerType;
     bool oneBitCorrelation;
     bool delayTracking;
     bool fringeStopping;
@@ -296,6 +296,8 @@ private:
     tSyncDriverConfigure SyncDriverConfig;
     QG7M* localOscillator;
     qint64 currentPacketTime;
+    int fpgaTemperature;
+    int fpgaTemperatureMaximum;
 };
 
 #endif // MAINWINDOW_H

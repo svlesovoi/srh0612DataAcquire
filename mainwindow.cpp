@@ -41,6 +41,8 @@ MainWindow::MainWindow(QWidget *parent) :
     dataDuration = settings.value("receiver/dataDuration", 2000000).toUInt();
     internalSync = settings.value("receiver/internalSync", 0).toBool();
     oneBitCorrelation = settings.value("receiver/oneBitCorrelation", 0).toBool();
+    quantizerStep = settings.value("receiver/quantizerStep",1000).toUInt();
+    quantizerType = settings.value("receiver/quantizerType",0).toBool();
     delayTracking = settings.value("receiver/delayTracking", 1).toBool();
     fringeStopping = settings.value("receiver/fringeStopping", 1).toBool();
     autoStart = settings.value("receiver/autoStart", 1).toBool();
@@ -366,6 +368,7 @@ MainWindow::MainWindow(QWidget *parent) :
         fileLogIndexes.open(QIODevice::WriteOnly | QIODevice::Text);
         QTextStream out(&fileLogIndexes);
         out << "westAntennaNumber " << westAntennaNumber << " eastAntennaNumber " << eastAntennaNumber << " southAntennaNumber " << southAntennaNumber << "\n";
+        out << "quantizerStep " << quantizerStep << " quantizerType " << quantizerType << " oneBitCorrelation " << oneBitCorrelation << "\n";
 
         out << "southEastWestVisNumber " << southEastWestVisNumber << " southVisNumber " << southVisNumber << " eastWestVisNumber " << eastWestVisNumber << "\n";
         for (unsigned int i = 0;i < amp0612Number;++i)
@@ -465,6 +468,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->currentAntennaBSpinBox->setValue(showAntennaB);
     ui->delayTrackingButton->setChecked(delayTracking);
     ui->fringeStoppingButton->setChecked(fringeStopping);
+
+    ui->localOscillatorStartStop->hide();
 //--------------------------------------------------UI---------------------------------------------------------------
 //    localOscillator = new QG7M(localOscillatorIP);
     if (autoStart){
@@ -515,7 +520,7 @@ void MainWindow::on_SyncDriverConnect_clicked(bool checked){
 
 void MainWindow::on_SyncDriverGetConfigButton_clicked(){
     static tSyncDriverPkg SyncDriverPacket;
-    SyncDriverPacket.H.Rqst = eSyncDriverRqst_Rdr_GetCnfg;
+    SyncDriverPacket.H.Rqst = eSyncDriverRqst_Rdr_GetCnfgNew;
     SyncDriverPacket.H.isPacked = 0;
     SyncDriverPacket.H.HeadExtTp = 0x00;
     SyncDriverPacket.H.Magic = 0x05;
@@ -546,35 +551,46 @@ void MainWindow::on_SyncDriverSetConfigButton_clicked(bool checked){
 
 void MainWindow::syncDriverStartStop(bool start){
     static tSyncDriverPkg SyncDriverPacket;
-    SyncDriverPacket.H.Rqst = eSyncDriverRqst_Rdr_SetCnfg;
+    SyncDriverPacket.H.Rqst = eSyncDriverRqst_Rdr_SetCnfgNew;
+    SyncDriverPacket.H.isPacked = 0;
+    SyncDriverPacket.H.HeadExtTp = 0x00;
+    SyncDriverPacket.H.Magic = 0x05;
+    SyncDriverPacket.H.DtSz = 40;//sizeof(SyncDriverConfig);
+    std::memset(SyncDriverPacket.D.pU8,0,dHlgrphSS_PkgDtMaxSz);
+    SyncDriverPacket.D.CfgNew.FrqRange = SyncDriverFrqRange_6_12;
+    SyncDriverPacket.D.CfgNew.Configure.FSetDuration = SyncDriverConfig.FSetDuration;
+    SyncDriverPacket.D.CfgNew.Configure.PolarToggle = SyncDriverConfig.PolarToggle;
+    SyncDriverPacket.D.CfgNew.Configure.PolarSet = SyncDriverConfig.PolarSet;
+    SyncDriverPacket.D.CfgNew.Configure.HiTimeDuration = SyncDriverConfig.HiTimeDuration;
+    SyncDriverPacket.D.CfgNew.Configure.LowTimeDuration = SyncDriverConfig.LowTimeDuration;
+    SyncDriverPacket.D.CfgNew.Configure.NBand = SyncDriverConfig.NBand;
+    SyncDriverPacket.D.CfgNew.Configure.NCycle = SyncDriverConfig.NCycle;
+    SyncDriverPacket.D.CfgNew.Configure.NFSet = SyncDriverConfig.NFSet;
+    if (start)
+        SyncDriverPacket.D.CfgNew.Configure.Cntrl = 0x11;
+    else
+        SyncDriverPacket.D.CfgNew.Configure.Cntrl = 0x00;
+
+    ui->logText->append("size " + QString::number(SyncDriverPacket.H.DtSz));
+    ui->logText->append("FrqRange " + QString::number(SyncDriverPacket.D.CfgNew.FrqRange));
+    ui->logText->append("FSetDuration " + QString::number(SyncDriverPacket.D.CfgNew.Configure.FSetDuration));
+    ui->logText->append("PolarToggle " + QString::number(SyncDriverPacket.D.CfgNew.Configure.PolarToggle));
+    ui->logText->append("PolarSet " + QString::number(SyncDriverPacket.D.CfgNew.Configure.PolarSet));
+    ui->logText->append("HiTimeDuration " + QString::number(SyncDriverPacket.D.CfgNew.Configure.HiTimeDuration));
+    ui->logText->append("LowTimeDuration " + QString::number(SyncDriverPacket.D.CfgNew.Configure.LowTimeDuration));
+    ui->logText->append("NBand " + QString::number(SyncDriverPacket.D.CfgNew.Configure.NBand));
+    ui->logText->append("NCycle " + QString::number(SyncDriverPacket.D.CfgNew.Configure.NCycle));
+    ui->logText->append("NFSet " + QString::number(SyncDriverPacket.D.CfgNew.Configure.NFSet));
+    ui->logText->append("Cntrl " + QString::number(SyncDriverPacket.D.CfgNew.Configure.Cntrl,16));
+
+
+    pSyncDriverClient->write(reinterpret_cast<const char*>(&SyncDriverPacket), sizeof(tSyncDriverPkg_Head) + SyncDriverPacket.H.DtSz);
+
+    SyncDriverPacket.H.Rqst = eSyncDriverRqst_Rdr_GetCnfgNew;
     SyncDriverPacket.H.isPacked = 0;
     SyncDriverPacket.H.HeadExtTp = 0x00;
     SyncDriverPacket.H.Magic = 0x05;
     SyncDriverPacket.H.DtSz = sizeof(SyncDriverConfig);
-    std::memset(SyncDriverPacket.D.pU8,0,dHlgrphSS_PkgDtMaxSz);
-    SyncDriverPacket.D.Cfg.FSetDuration = SyncDriverConfig.FSetDuration;
-    SyncDriverPacket.D.Cfg.PolarToggle = SyncDriverConfig.PolarToggle;
-    SyncDriverPacket.D.Cfg.PolarSet = SyncDriverConfig.PolarSet;
-    SyncDriverPacket.D.Cfg.HiTimeDuration = SyncDriverConfig.HiTimeDuration;
-    SyncDriverPacket.D.Cfg.LowTimeDuration = SyncDriverConfig.LowTimeDuration;
-    SyncDriverPacket.D.Cfg.NBand = SyncDriverConfig.NBand;
-    SyncDriverPacket.D.Cfg.NCycle = SyncDriverConfig.NCycle;
-    SyncDriverPacket.D.Cfg.NFSet = SyncDriverConfig.NFSet;
-    if (start)
-        SyncDriverPacket.D.Cfg.Cntrl = 0x11;
-    else
-        SyncDriverPacket.D.Cfg.Cntrl = 0x00;
-
-    ui->logText->append("FSetDuration " + QString::number(SyncDriverPacket.D.Cfg.FSetDuration));
-    ui->logText->append("PolarToggle " + QString::number(SyncDriverPacket.D.Cfg.PolarToggle));
-    ui->logText->append("PolarSet " + QString::number(SyncDriverPacket.D.Cfg.PolarSet));
-    ui->logText->append("HiTimeDuration " + QString::number(SyncDriverPacket.D.Cfg.HiTimeDuration));
-    ui->logText->append("LowTimeDuration " + QString::number(SyncDriverPacket.D.Cfg.LowTimeDuration));
-    ui->logText->append("NBand " + QString::number(SyncDriverPacket.D.Cfg.NBand));
-    ui->logText->append("NCycle " + QString::number(SyncDriverPacket.D.Cfg.NCycle));
-    ui->logText->append("NFSet " + QString::number(SyncDriverPacket.D.Cfg.NFSet));
-    ui->logText->append("Cntrl " + QString::number(SyncDriverPacket.D.Cfg.Cntrl,16));
-
     pSyncDriverClient->write(reinterpret_cast<const char*>(&SyncDriverPacket), sizeof(tSyncDriverPkg_Head) + SyncDriverPacket.H.DtSz);
 }
 
@@ -665,7 +681,8 @@ void MainWindow::on_correlatorClient_parse(){
                                 currentFrequency = f;
                         }
                     if (currentPolarization == showPolarization && currentFrequency == showFrequency){
-                        ui->logText->append("Tfpga " + QString::number(pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Tfpga));
+                        fpgaTemperature = pCorrData->Blck.Cfg.InfoSpiDrv.StsSpi.Tfpga;
+                        ui->fpgaTemperatureLabel->setText("FPGA temperature " + QString::number(fpgaTemperature));
                     }
                     currentPacketTime = pCorrData->Blck.Cfg.InfoSpiDrv.Time * 1000L + pCorrData->Blck.Cfg.InfoSpiDrv.TimePrescaler / 100000L;
                 } else
@@ -955,6 +972,7 @@ void MainWindow::initDigitalReceivers(){
     ui->logText->append("Culmination " + QString::number(soldat.DCulmination()));
     ui->logText->append("Declination " + QString::number(soldat.DDeclination()));
     setBitWindowPosition(10);
+    on_oneBitCorrelationButton_clicked(false);
 }
 
 void MainWindow::initEphemeris(){
@@ -1052,21 +1070,25 @@ void MainWindow::on_SyncDriverClient_read(){
     if (static_cast<unsigned long>(pSyncDriverClient->bytesAvailable()) >= sizeof(tSyncDriverPkg_Head)){
         pSyncDriverClient->read(reinterpret_cast<char*>(pSyncDriverHead), sizeof(tPkg_Head));           //read header
         switch (pSyncDriverHead->Rqst){
-            case eSyncDriverRqst_Rdr_GetCnfg:
-                ui->logText->append("SyncDriver::eSyncDriverRqst_Rdr_GetCnfg::isRqstR" + QString::number(pSyncDriverHead->isRqstR));
+            case eSyncDriverRqst_Rdr_GetCnfgNew:
+                ui->logText->append("SyncDriver::eSyncDriverRqst_Rdr_GetCnfgNew::isRqstR " + QString::number(pSyncDriverHead->isRqstR));
                 pSyncDriverClient->read(reinterpret_cast<char*>(pSyncDriverData), pSyncDriverHead->DtSz);           //read data
-                ui->logText->append("FSetDuration " + QString::number(pSyncDriverData->Cfg.FSetDuration));
-                ui->logText->append("PolarToggle " + QString::number(pSyncDriverData->Cfg.PolarToggle));
-                ui->logText->append("PolarSet " + QString::number(pSyncDriverData->Cfg.PolarSet));
-                ui->logText->append("HiTimeDuration " + QString::number(pSyncDriverData->Cfg.HiTimeDuration));
-                ui->logText->append("LowTimeDuration " + QString::number(pSyncDriverData->Cfg.LowTimeDuration));
-                ui->logText->append("NBand " + QString::number(pSyncDriverData->Cfg.NBand));
-                ui->logText->append("NCycle " + QString::number(pSyncDriverData->Cfg.NCycle));
-                ui->logText->append("NFSet " + QString::number(pSyncDriverData->Cfg.NFSet));
-                ui->logText->append("Cntrl " + QString::number(pSyncDriverData->Cfg.Cntrl,16));
+                ui->logText->append("FrqRange " + QString::number(pSyncDriverData->CfgNew.FrqRange));
+                ui->logText->append("FSetDuration " + QString::number(pSyncDriverData->CfgNew.Configure.FSetDuration));
+                ui->logText->append("PolarToggle " + QString::number(pSyncDriverData->CfgNew.Configure.PolarToggle));
+                ui->logText->append("PolarSet " + QString::number(pSyncDriverData->CfgNew.Configure.PolarSet));
+                ui->logText->append("HiTimeDuration " + QString::number(pSyncDriverData->CfgNew.Configure.HiTimeDuration));
+                ui->logText->append("LowTimeDuration " + QString::number(pSyncDriverData->CfgNew.Configure.LowTimeDuration));
+                ui->logText->append("NBand " + QString::number(pSyncDriverData->CfgNew.Configure.NBand));
+                ui->logText->append("NCycle " + QString::number(pSyncDriverData->CfgNew.Configure.NCycle));
+                ui->logText->append("NFSet " + QString::number(pSyncDriverData->CfgNew.Configure.NFSet));
+                ui->logText->append("Cntrl " + QString::number(pSyncDriverData->CfgNew.Configure.Cntrl,16));
             break;
             case eSyncDriverRqst_Rdr_SetCnfg:
                 ui->logText->append("SyncDriver::eSyncDriverRqst_Rdr_SetCnfg::isRqstR " + QString::number(pSyncDriverHead->isRqstR));
+            break;
+            case eSyncDriverRqst_Rdr_SetCnfgNew:
+                ui->logText->append("SyncDriver::eSyncDriverRqst_Rdr_SetCnfgNew::isRqstR " + QString::number(pSyncDriverHead->isRqstR));
             break;
             default:
                 ui->logText->append("SyncDriver::unknown");
@@ -1265,13 +1287,13 @@ void MainWindow::on_oneBitCorrelationButton_clicked(bool checked){
     static tPkg setRgPacket;
     setTypicalPacketPrefix(&setRgPacket, eRqst_Rdr_SetRgs32);
     setRgPacket.D.Rg32.Rg[0] = 0x0F; //
-    setRgPacket.D.Rg32.Rg[1] = 0xFF; //
+    setRgPacket.D.Rg32.Rg[1] = 0xFFF; //
     setRgPacket.D.Rg32.Rg[2] = 0x08; //
     setRgPacket.D.Rg32.Rg[3] = 0x0A8;
     if (oneBitCorrelation)
         setRgPacket.D.Rg32.Rg[4] = 0;//
     else
-        setRgPacket.D.Rg32.Rg[4] = quantizerStep | (qunatizerZeroLevel ? 0x80000000 : 0);//
+        setRgPacket.D.Rg32.Rg[4] = quantizerStep | (quantizerType ? 0x80000000 : 0);//
 
     setRgPacket.D.Rg32.Count = 5;
     setRgPacket.H.DtSz = (setRgPacket.D.Rg32.Count + 1)*4;
@@ -1289,7 +1311,7 @@ void MainWindow::on_quantizerSpinBox_valueChanged(int newStep){
 }
 
 void MainWindow::on_pushButton_clicked(bool checked){
-    qunatizerZeroLevel = !checked;
+    quantizerType = !checked;
 }
 
 void MainWindow::on_currentAntennaASpinBox_valueChanged(int newAntA){
