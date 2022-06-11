@@ -15,21 +15,11 @@
 #include <CCfits>
 using namespace CCfits;
 
-struct SCorrVis{
-    int32_t real;
-    int32_t imag;
-};
-
-struct SAntennaPosition{
-    long X;
-    long Y;
-    long Z;
-};
-
-struct SAntennaEquipmentID{
-    long antennaName;
-    long frontEndID;
-    long feedID;
+enum SyncDriverCmd {
+    start,
+    stop,
+    getConfig,
+    setConfig
 };
 
 namespace Ui {
@@ -111,6 +101,10 @@ private slots:
 
     void startSyncDriver();
 
+    void stopSyncDriver();
+
+    void disconnectSyncDriver();
+
     void on_currentAntennaBSpinBox_valueChanged(int arg1);
 
     void on_antennaGainSpin_valueChanged(int arg1);
@@ -130,6 +124,8 @@ private slots:
     void on_antennaADelaySpin_valueChanged(int arg1);
 
     void on_antennaBDelaySpin_valueChanged(int arg1);
+
+    void on_receiver_correlator_amps_button_toggled(bool checked);
 
 private:
     Ui::MainWindow *ui;
@@ -182,6 +178,9 @@ private:
     float plotterXOffset;
     float plotterYScale;
     float plotterYOffset;
+    int plotterYScaleScroll;
+    int plotterYOffsetScroll;
+    SyncDriverCmd syncDriverCmd;
 
     std::vector<string> antNameColumn;
     std::vector<string> antNameIndexColumn;
@@ -203,6 +202,8 @@ private:
     std::vector<std::valarray<int64_t > > rcpAmpColumn;
     std::vector<std::valarray< complex<float> > > lcpVisColumn;
     std::vector<std::valarray< complex<float> > > rcpVisColumn;
+    std::vector<std::valarray< float > > lcpAmpCColumn;
+    std::vector<std::valarray< float > > rcpAmpCColumn;
     QString fitsPath;
     void addKey2FitsHeader(QString key, QString value, QString comment, FITS* pFits);
     void addKey2FitsHeader(QString key, int value, FITS* pFits);
@@ -229,7 +230,12 @@ private:
     unsigned int amp0612Number;
     unsigned int* pAmpIndToCorrPacketInd;
     unsigned int* pAmpIndToFitsInd;
+    unsigned int* pReceiverChannelToInd;
+    unsigned int* pAmpCIndToCorrPacketInd;
     QString* pAntennaName;
+    int* pAntennaX;
+    int* pAntennaY;
+    int* pAntennaZ;
     unsigned int* pAntennaDelay;
 
     unsigned int southAntennaNumber;
@@ -298,6 +304,7 @@ private:
     qint64 currentPacketTime;
     int fpgaTemperature;
     int fpgaTemperatureMaximum;
+    bool showReceiverAmplitude;
 };
 
 #endif // MAINWINDOW_H

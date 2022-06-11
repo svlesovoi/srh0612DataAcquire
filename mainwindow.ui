@@ -53,7 +53,7 @@
    <widget class="QPushButton" name="SyncDriverConnect">
     <property name="geometry">
      <rect>
-      <x>870</x>
+      <x>1010</x>
       <y>10</y>
       <width>181</width>
       <height>31</height>
@@ -61,22 +61,6 @@
     </property>
     <property name="text">
      <string>Connect to SyncDriver</string>
-    </property>
-    <property name="checkable">
-     <bool>true</bool>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="SyncDriverSetConfigButton">
-    <property name="geometry">
-     <rect>
-      <x>1050</x>
-      <y>10</y>
-      <width>191</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Start acquisition</string>
     </property>
     <property name="checkable">
      <bool>true</bool>
@@ -159,9 +143,9 @@
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
-      <x>360</x>
+      <x>620</x>
       <y>440</y>
-      <width>731</width>
+      <width>491</width>
       <height>61</height>
      </rect>
     </property>
@@ -179,48 +163,6 @@
      </property>
      <property name="prefix">
       <string>delay A </string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="oneBitCorrelationButton">
-     <property name="geometry">
-      <rect>
-       <x>490</x>
-       <y>20</y>
-       <width>51</width>
-       <height>35</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>1-bit</string>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
-     </property>
-    </widget>
-    <widget class="QSpinBox" name="quantizerSpinBox">
-     <property name="geometry">
-      <rect>
-       <x>550</x>
-       <y>20</y>
-       <width>81</width>
-       <height>35</height>
-      </rect>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="zeroButton">
-     <property name="geometry">
-      <rect>
-       <x>630</x>
-       <y>20</y>
-       <width>81</width>
-       <height>35</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Zero level</string>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
      </property>
     </widget>
     <widget class="QSpinBox" name="antennaGainSpin">
@@ -406,6 +348,22 @@
     </property>
     <property name="text">
      <string>FPGA temperature</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="receiver_correlator_amps_button">
+    <property name="geometry">
+     <rect>
+      <x>390</x>
+      <y>460</y>
+      <width>181</width>
+      <height>36</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>DR/correlator amps</string>
+    </property>
+    <property name="checkable">
+     <bool>true</bool>
     </property>
    </widget>
   </widget>
